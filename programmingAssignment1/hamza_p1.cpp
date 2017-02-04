@@ -10,7 +10,6 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include <tuple>
 #include <set>
 
 using namespace std;
@@ -23,20 +22,34 @@ struct transition {
     int endState;
     
     transition(int x, char s, int y){
-        startState = x;
-        inputSymbol = s;
-        endState = y;
+        this->startState = x;
+        this->inputSymbol = s;
+        this->endState = y;
     }
 };
 
-struct configuration{
-    int currentState;
-    string inputString;
+class configuration{
+    public:
+        int currentState;
+        string inputString;
     
-    configuration(int state, string str){
-        currentState = state;
-        inputString = str;
-    }
+        configuration(int state, string str){
+            currentState = state;
+            inputString = str;
+        }
+    
+    bool operator==(const configuration &other) const{
+            return other.currentState == this->currentState && other.inputString == this->inputString;
+        }
+    bool operator!=(const configuration &other) const {
+            return !(*this == other);
+        }
+    bool operator<(const configuration &other) const{
+            if (other.currentState > this->currentState) return true;
+            else return false;
+        }
+    
+    
 };
 
 
@@ -44,7 +57,7 @@ int startState;
 vector<int> acceptStates;
 vector<transition> transitions;
 
-void stateParser(string line){
+void stateParser(const string &line){
     if(line.at(8) == 's'){
         startState = atoi(&line.at(6));
     }
@@ -53,37 +66,35 @@ void stateParser(string line){
     }
 }
 
-void transitionParser(string line){
+void transitionParser(const string &line){
     transitions.push_back(transition(atoi(&line.at(11)), line.at(13), atoi(&line.at(15))));
 }
 
-       
 
-
-bool checkInputRemains(vector<configuration> configs){
+bool checkInputRemains(const set<configuration> &configs){
     bool returnVal = false;
     
-    for(int i=0; i < (int) configs.size(); i++){
-        if (configs[i].inputString != "") returnVal = true;
+    for(configuration c : configs){
+        if (c.inputString != "") returnVal = true;
     }
     
     return returnVal;
 }
 
-vector<configuration> processConfigs(vector<configuration> configs){
-    vector<configuration> newConfigs;
-    for(int i=0; i < (int)  configs.size(); i++){
-        int currState = configs[i].currentState;
-        string currString = configs[i].inputString;
+set<configuration> processConfigs(const set<configuration> &configs){
+    set<configuration> newConfigs;
+    for(configuration c : configs){
+        int currState = c.currentState;
+        string currString = c.inputString;
         char currInput = currString.at(0);
         
-        for(int j=0; j < (int) transitions.size(); j++){
+        for(size_t j=0; j < transitions.size(); j++){
             if(transitions[j].startState == currState
                && transitions[j].inputSymbol == currInput){
                 
                 int newState = transitions[j].endState;
                 string newString = currString.substr(1);
-                newConfigs.push_back(configuration(newState, newString));
+                newConfigs.insert(configuration(newState, newString));
             }
         }
     }
@@ -112,16 +123,22 @@ int main(int argc, const char * argv[]) {
         }
         myfile.close();
     }
-
-    vector<configuration> allConfigs;
-    allConfigs.push_back(configuration(startState, argv[2]));
+    set<configuration> allConfigs;
+    allConfigs.insert(configuration(startState, argv[2]));
+    
+    
+    
+    while(checkInputRemains(allConfigs)){
+        allConfigs = processConfigs(allConfigs);
+        
+    }
     
     bool accept = false;
     vector<int> finalStates;
     
-    for (int i=0; i < (int) acceptStates.size(); i++){
-        for (int j=0; j < (int) allConfigs.size(); j++){
-            if (allConfigs[j].currentState == acceptStates[i]) {
+    for (size_t i=0; i < acceptStates.size(); i++){
+        for (configuration c : allConfigs){
+            if (c.currentState == acceptStates[i]) {
                 accept = true;
                 finalStates.push_back(acceptStates[i]);
                 break;
@@ -130,7 +147,7 @@ int main(int argc, const char * argv[]) {
     }
     
     set<int> endStates;
-    for( unsigned i = 0; i < allConfigs.size(); ++i ) endStates.insert( allConfigs[i].currentState );
+    for(configuration c : allConfigs) endStates.insert( c.currentState );
     
     
     if(accept){
